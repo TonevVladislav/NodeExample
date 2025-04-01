@@ -1,12 +1,15 @@
 const { ethers } = require("ethers");
-const Event = require("../db/models/Event");
-const { startIndex, stopIndex } = require("../services/indexer.service.copy");
+const {
+  startIndex,
+  stopIndex,
+  retrieveEvents,
+} = require("../services/indexer.service");
 const {
   fetchTransactions,
   getContractCreationBlock,
 } = require("../services/eth.service");
-const { retrieveEvents } = require("../services/indexer.service");
 const { StatusCodes } = require("http-status-codes");
+const { logger } = require("../utils/logger.util");
 
 const getTransactions = async (req, res) => {
   try {
@@ -47,7 +50,7 @@ const startIndexing = async (req, res) => {
     }
     // Start indexing in the background
     const success = await startIndex(eventSignature, fromBlock).catch((err) => {
-      console.log("err: " + err);
+      logger.info(err);
     });
     if (success) {
       res.json({
@@ -57,8 +60,8 @@ const startIndexing = async (req, res) => {
         startBlock: fromBlock || "latest",
       });
     }
-  } catch (error) {
-    console.error("Error starting indexer:", error);
+  } catch (err) {
+    logger.info(err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
@@ -67,8 +70,8 @@ const getEvents = async (req, res) => {
   try {
     const events = await retrieveEvents();
     res.status(200).json({ events });
-  } catch (error) {
-    console.error("Error starting indexer:", error);
+  } catch (err) {
+    logger.info(err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
@@ -83,8 +86,8 @@ const stopIndexing = async (req, res) => {
         lastIndexedBlock: "latest",
       });
     }
-  } catch (error) {
-    console.error("Error starting indexer:", error);
+  } catch (err) {
+    logger.info(err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };

@@ -1,44 +1,41 @@
-const { ethers } = require("ethers");
 const Event = require("../db/models/Event");
+const { ethers } = require("ethers");
 const { logger } = require("../utils/logger.util");
+const EventHandler = require("../utils/event.handler.util");
 
-const listener = async (log) => {
-  console.log(JSON.stringify(log));
-  const event = {
-    blockNumber: log.blockNumber,
-    transactionHash: log.transactionHash,
-    data: {
-      from: log.address,
-      to: log.topics[2],
-      value: log.data,
-    },
-    event: process.env.EVENT_SIGNATURE,
-  };
-  await Event.create(event);
-};
+const provider = new ethers.JsonRpcProvider(
+  "https://sepolia.infura.io/v3/64cb812e6dc444549961e573b6e2f579"
+);
+const eventHandler = new EventHandler(provider, process.env.CONTRACT_ADDRESS);
 
-let activeListeners = {};
-
-async function indexEvents(eventSignature, fromBlock = "latest", provider) {
+eventHandler.onEvent = async (log) => {
   try {
-    const eventTopic = ethers.id(eventSignature);
-    const latestBlock = await provider.getBlockNumber();
-    const startBlock = fromBlock === "latest" ? latestBlock : fromBlock;
-
-    console.log(`Listening for ${eventSignature} from block ${startBlock}`);
-
-    provider.on(
-      {
-        address: process.env.CONTRACT_ADDRESS,
-        topics: [eventTopic],
-        fromBlock: startBlock,
+    const event = {
+      blockNumber: log.blockNumber,
+      transactionHash: log.transactionHash,
+      data: {
+        from: log.address,
+        to: log.topics[2],
+        value: log.data,
       },
-      listener
+      event: process.env.EVENT_SIGNATURE,
+    };
+
+    await Event.create(event);
+    console.log(
+      `Saved event: ${process.env.EVENT_SIGNATURE} at block ${log.blockNumber}`
     );
   } catch (err) {
     logger.info(err);
-    return err;
   }
+};
+
+async function startIndex(eventSignature, fromBlock = "latest") {
+  return eventHandler.startListening(eventSignature, fromBlock);
+}
+
+async function stopIndex(eventSignature) {
+  return eventHandler.stopListening(eventSignature);
 }
 
 async function retrieveEvents() {
@@ -50,17 +47,4 @@ async function retrieveEvents() {
   }
 }
 
-function stopIndex(eventSignature, provider) {
-  provider
-    .removeListener("block", listener)
-    .catch((err) => {
-      logger.info(err);
-    })
-    .catch((err) => {
-      console.log("err" + err);
-    });
-  console.log(`Stopped indexing for event: ${eventSignature}`);
-  return true;
-}
-
-module.exports = { indexEvents, retrieveEvents, stopIndex };
+module.exports = { startIndex, stopIndex, retrieveEvents };

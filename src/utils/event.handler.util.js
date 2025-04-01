@@ -1,5 +1,4 @@
 const { ethers } = require("ethers");
-const winston = require("winston");
 const { logger } = require("./logger.util");
 
 class EventHandler {
@@ -17,9 +16,8 @@ class EventHandler {
     }
 
     const eventTopic = ethers.id(eventSignature);
-    console.log(this.address, "  1  ", eventTopic);
     const filter = {
-      address: this.address,
+      address: process.env.CONTRACT_ADDRESS,
       topics: [eventTopic],
       fromBlock,
     };
